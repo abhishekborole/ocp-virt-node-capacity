@@ -1,0 +1,8 @@
+{
+  "allocatable_cpu": 32,
+  "allocatable_memory_gib": 128,
+  "used_cpu": 8,
+  "used_memory_gib": 32,
+  "new_cpu": 8,
+  "new_memory_gib": 16
+}
