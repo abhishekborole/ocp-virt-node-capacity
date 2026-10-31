@@ -1,54 +1,39 @@
 # ocp-virt-node-capacity
 
-Estimate remaining allocatable CPU and memory after a proposed VM batch.
+Collect node allocatable resources and conservative pod-request upper bounds from the cluster.
 
-An independent OpenShift Virtualization lab utility using Python 3.11+ and the standard library. All examples are synthetic. This tool performs offline analysis and does not require credentials.
+Connects to **OpenShift 4.20+ with OpenShift Virtualization** through the installed `oc` CLI and your existing kubeconfig authentication. Reads actual API objects directly; no prepared inventory files or demonstration data are used.
 
-## Run
+## Connect and run
+
+Requires Python 3.11+, a matching supported `oc` client, and an authenticated account. Log in interactively with `oc login`, then select an existing context using `oc config get-contexts`.
+
+```powershell
+python tool.py --context YOUR_CONTEXT --namespace YOUR_NAMESPACE 
+```
+
+Replace uppercase arguments with real infrastructure identifiers. Run `python tool.py --help` for all options. The command above previews any requested change. For an implemented change operation, add `--apply` to submit it. With no change-specific option, scripts collect live reports. `--apply` alone never invents an operation.
+
+JSON is written to stdout; redirect it to a local report outside the repository if needed. Errors go to stderr with exit code 2. Exit 0 means the request/report completed, not that asynchronous tasks have completed or all findings are healthy. Kubeconfig credentials are handled by `oc`; the script never accepts or prints a cluster token. Do not publish collected infrastructure reports.
+
+## Permissions and behavior
+
+Required RBAC: **cluster-wide list nodes and pods**. Use the smallest role covering the operation. API errors are reported directly and are not converted into healthy results. Context and namespace are explicit on every command. Requests time out; writes are never automatically retried. VM/PVC/node patches include a resourceVersion test so concurrent changes fail instead of being overwritten.
+
+Adds init-container requests conservatively rather than reproducing every scheduler admission rule. This is request accounting, not live utilization or a placement guarantee.
+
+## Verification
 
 ```console
-python tool.py examples/sample.json
 python -m unittest discover -v
 ```
 
-Run from this repository directory. Output is JSON on stdout. Exit 0 means analysis completed, including when findings are present; exit 2 means invalid input or an unreadable file. Inspect result fields for policy findings. See [expected output](examples/expected.json).
-
-## Input contract
-
-Supply normalized JSON matching [sample.json](examples/sample.json). This is a purpose-built interchange format, not an unmodified `oc`, Kubernetes API, vCenter, or PowerCLI export. Map your lab exports to these documented fields before use. Numeric units are part of field names. Ages and observed statuses must be calculated by the data collector.
-
-| Required field | Type |
-| --- | --- |
-| `allocatable_cpu` | integer |
-| `allocatable_memory_gib` | integer |
-| `used_cpu` | integer |
-| `used_memory_gib` | integer |
-| `new_cpu` | integer |
-| `new_memory_gib` | integer |
-
-All listed fields are required on each matching record; additional keys are allowed. Lists may be empty unless the algorithm requires at least one record. Nonnegative sample numbers require nonnegative input. Booleans must be JSON booleans. Thresholds are local examples, not vendor defaults or universal recommendations.
-
-## Example result
-
-```json
-{
-  "fits": true,
-  "remaining_cpu": 16,
-  "remaining_memory_gib": 80
-}
-```
-
-## Scope and limits
-
-The calculation is implemented in `_analyze` in [tool.py](tool.py). Read its checks before applying the result to a real environment. The result describes only supplied records, not overall platform health, compatibility, security, or supportability. Incomplete or stale exports can hide problems. Capacity and transfer estimates omit platform overhead, reservations, contention, dirty-page rates, and other constraints unless explicitly represented by an input field. Greedy placement is a planning heuristic and can miss a feasible arrangement.
-
-This is a focused initial implementation with fixture and CLI tests, not a production-certified integration. No infrastructure changes are made by this utility.
-
-## Development
-
-Tests cover the example, a changed workload, invalid input, missing files, CLI behavior, and input immutability. CI is configured for Python 3.11 and 3.13 on Linux and Windows; local results are recorded in the workspace portfolio report. Contributions should add representative sanitized fixtures and tests for new behavior. Never commit infrastructure credentials or production exports.
+Tests mock command responses to verify transport boundaries, explicit targeting, quantity handling, migration gates, and preview behavior. They are software tests, not claims of connection to a live lab. OpenShift/MTV/OADP feature availability and RBAC must be verified on your installed versions before applying changes. CI runs these tests without infrastructure secrets; it never operates your cluster.
 
 ## References
 
-- [Platform or language documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html/virtualization/index) — verify behavior against your deployed version.
+- [OpenShift 4.20 virtualization documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/virtualization/index)
+- [KubeVirt API reference](https://kubevirt.io/api-reference/main/definitions.html)
+- [KubeVirt live migration](https://kubevirt.io/user-guide/compute/live_migration/)
+- [Snapshot API](https://kubevirt.io/user-guide/storage/snapshot_restore_api/)
 - [MIT license](LICENSE)
